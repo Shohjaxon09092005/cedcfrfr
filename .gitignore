@@ -1,0 +1,40 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Environment — API kalitlari bu yerda, HECH QACHON GitHubga yuklamang
+.env
+.env.*
+*.env
+
+# Django media — foydalanuvchi yuklagan fayllar
+media/
+media/*
+
+# Django static (collectstatic natijasi)
+staticfiles/
+static_collected/
+
+# Database (lokal SQLite)
+*.sqlite3
+db.sqlite3
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

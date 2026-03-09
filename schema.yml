@@ -1,0 +1,1804 @@
+openapi: 3.0.3
+info:
+  title: EduAI API
+  version: 1.0.0
+  description: EduAI ta'lim platformasi REST API – autentifikatsiya, kurslar, resurslar,
+    testlar, progress va bildirishnomalar.
+paths:
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: Email va parol bilan tizimga kirish. JWT access va refresh token
+        qaytariladi.
+      summary: Kirish
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      description: Bearer token orqali kirilgan foydalanuvchi ma'lumotlarini qaytaradi.
+      summary: Joriy foydalanuvchi
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/auth/register/:
+    post:
+      operationId: auth_register_create
+      description: 'Yangi foydalanuvchi ro''yxatdan o''tadi. Rol: admin, instructor
+        (domla), student (talaba).'
+      summary: Ro'yxatdan o'tish
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      - {}
+      responses:
+        '201':
+          description: No response body
+  /api/courses/:
+    get:
+      operationId: courses_list
+      description: Barcha kurslarni olish yoki filtrlash.
+      summary: Kurslar ro'yxati
+      tags:
+      - courses
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Course'
+          description: ''
+    post:
+      operationId: courses_create
+      description: Yangi kurs qo'shish (domla o'zini instructor qilib yozadi).
+      summary: Kurs yaratish
+      tags:
+      - courses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+  /api/courses/{id}/:
+    get:
+      operationId: courses_retrieve
+      description: Bitta kurs ma'lumotini olish.
+      summary: Kurs detali
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Kurs.
+        required: true
+      tags:
+      - courses
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+    put:
+      operationId: courses_update
+      summary: Kursni yangilash
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Kurs.
+        required: true
+      tags:
+      - courses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+    patch:
+      operationId: courses_partial_update
+      summary: Kursni qisman yangilash
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Kurs.
+        required: true
+      tags:
+      - courses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCourseRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCourseRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCourseRequest'
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+    delete:
+      operationId: courses_destroy
+      summary: Kursni o'chirish
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Kurs.
+        required: true
+      tags:
+      - courses
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/learning/ai-messages/:
+    get:
+      operationId: learning_ai_messages_list
+      description: AI tutor bilan suhbat tarixi.
+      summary: AI xabarlar
+      tags:
+      - learning
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AIMessage'
+          description: ''
+    post:
+      operationId: learning_ai_messages_create
+      summary: AI xabar yozish
+      tags:
+      - learning
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIMessageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AIMessageRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AIMessageRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIMessage'
+          description: ''
+  /api/learning/ai-messages/{id}/:
+    get:
+      operationId: learning_ai_messages_retrieve
+      summary: AI xabar detali
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - learning
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIMessage'
+          description: ''
+    put:
+      operationId: learning_ai_messages_update
+      summary: AI xabarni yangilash
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - learning
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIMessageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AIMessageRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AIMessageRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIMessage'
+          description: ''
+    patch:
+      operationId: learning_ai_messages_partial_update
+      summary: AI xabarni qisman yangilash
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - learning
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAIMessageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAIMessageRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAIMessageRequest'
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIMessage'
+          description: ''
+    delete:
+      operationId: learning_ai_messages_destroy
+      summary: AI xabarni o'chirish
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - learning
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/learning/notifications/:
+    get:
+      operationId: learning_notifications_list
+      description: Foydalanuvchiga tegishli bildirishnomalar.
+      summary: Bildirishnomalar
+      tags:
+      - learning
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+          description: ''
+    post:
+      operationId: learning_notifications_create
+      summary: Bildirishnoma yaratish
+      tags:
+      - learning
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/learning/notifications/{id}/:
+    get:
+      operationId: learning_notifications_retrieve
+      summary: Bildirishnoma detali
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - learning
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+    put:
+      operationId: learning_notifications_update
+      summary: Bildirishnonani yangilash
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - learning
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+    patch:
+      operationId: learning_notifications_partial_update
+      summary: Bildirishnonani qisman yangilash (masalan read=True)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - learning
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationRequest'
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+    delete:
+      operationId: learning_notifications_destroy
+      summary: Bildirishnonani o'chirish
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - learning
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/learning/progress/:
+    get:
+      operationId: learning_progress_list
+      description: Talaba kurs bo'yicha progress (o'zingiz yoki admin uchun hammasi).
+      summary: Progress ro'yxati
+      tags:
+      - learning
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudentCourseProgress'
+          description: ''
+    post:
+      operationId: learning_progress_create
+      summary: Progress yozish
+      tags:
+      - learning
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentCourseProgressRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudentCourseProgressRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudentCourseProgressRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentCourseProgress'
+          description: ''
+  /api/learning/progress/{id}/:
+    get:
+      operationId: learning_progress_retrieve
+      summary: Progress detali
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - learning
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentCourseProgress'
+          description: ''
+    put:
+      operationId: learning_progress_update
+      summary: Progressni yangilash
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - learning
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentCourseProgressRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudentCourseProgressRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudentCourseProgressRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentCourseProgress'
+          description: ''
+    patch:
+      operationId: learning_progress_partial_update
+      summary: Progressni qisman yangilash
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - learning
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentCourseProgressRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentCourseProgressRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentCourseProgressRequest'
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentCourseProgress'
+          description: ''
+    delete:
+      operationId: learning_progress_destroy
+      summary: Progressni o'chirish
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - learning
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/resources/:
+    get:
+      operationId: resources_list
+      description: Kurslar uchun PDF, video, havola va boshqa resurslar.
+      summary: Resurslar ro'yxati
+      tags:
+      - resources
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Resource'
+          description: ''
+    post:
+      operationId: resources_create
+      summary: Resurs yaratish
+      tags:
+      - resources
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ResourceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ResourceRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+          description: ''
+  /api/resources/{id}/:
+    get:
+      operationId: resources_retrieve
+      summary: Resurs detali
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Resurs.
+        required: true
+      tags:
+      - resources
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+          description: ''
+    put:
+      operationId: resources_update
+      summary: Resursni yangilash
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Resurs.
+        required: true
+      tags:
+      - resources
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ResourceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ResourceRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+          description: ''
+    patch:
+      operationId: resources_partial_update
+      summary: Resursni qisman yangilash
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Resurs.
+        required: true
+      tags:
+      - resources
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedResourceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedResourceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedResourceRequest'
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+          description: ''
+    delete:
+      operationId: resources_destroy
+      summary: Resursni o'chirish
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Resurs.
+        required: true
+      tags:
+      - resources
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/statistics/overview/:
+    get:
+      operationId: statistics_overview_retrieve
+      description: Jami talabalar, kurslar, resurslar, faol foydalanuvchilar va boshqa
+        ko'rsatkichlar.
+      summary: Umumiy statistika
+      tags:
+      - statistics
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalStudents:
+                    type: integer
+                    description: Jami talabalar
+                  totalCourses:
+                    type: integer
+                    description: Jami kurslar
+                  totalResources:
+                    type: integer
+                    description: Jami resurslar
+                  activeUsers:
+                    type: integer
+                    description: Faol foydalanuvchilar
+                  completionRate:
+                    type: number
+                    description: Tugatish foizi
+                  averageScore:
+                    type: number
+                    description: O'rtacha ball
+          description: ''
+  /api/tests/:
+    get:
+      operationId: tests_list
+      description: Kurslar uchun testlar va savollar.
+      summary: Testlar ro'yxati
+      tags:
+      - tests
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Test'
+          description: ''
+    post:
+      operationId: tests_create
+      summary: Test yaratish
+      tags:
+      - tests
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Test'
+          description: ''
+  /api/tests/{id}/:
+    get:
+      operationId: tests_retrieve
+      summary: Test detali
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Test.
+        required: true
+      tags:
+      - tests
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Test'
+          description: ''
+    put:
+      operationId: tests_update
+      summary: Testni yangilash
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Test.
+        required: true
+      tags:
+      - tests
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Test'
+          description: ''
+    patch:
+      operationId: tests_partial_update
+      summary: Testni qisman yangilash
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Test.
+        required: true
+      tags:
+      - tests
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTestRequest'
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Test'
+          description: ''
+    delete:
+      operationId: tests_destroy
+      summary: Testni o'chirish
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Test.
+        required: true
+      tags:
+      - tests
+      security:
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '204':
+          description: No response body
+components:
+  schemas:
+    AIMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: integer
+          title: Foydalanuvchi
+        role:
+          allOf:
+          - $ref: '#/components/schemas/AIMessageRoleEnum'
+          title: Rol
+        content:
+          type: string
+          title: Matn
+        timestamp:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Vaqt
+        confidence:
+          type: number
+          format: double
+          nullable: true
+          title: Ishonchlilik
+        sources:
+          title: Manbalar
+      required:
+      - content
+      - id
+      - role
+      - timestamp
+      - user
+    AIMessageRequest:
+      type: object
+      properties:
+        user:
+          type: integer
+          title: Foydalanuvchi
+        role:
+          allOf:
+          - $ref: '#/components/schemas/AIMessageRoleEnum'
+          title: Rol
+        content:
+          type: string
+          minLength: 1
+          title: Matn
+        confidence:
+          type: number
+          format: double
+          nullable: true
+          title: Ishonchlilik
+        sources:
+          title: Manbalar
+      required:
+      - content
+      - role
+      - user
+    AIMessageRoleEnum:
+      enum:
+      - user
+      - assistant
+      type: string
+      description: |-
+        * `user` - Foydalanuvchi
+        * `assistant` - Yordamchi
+    Course:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          title: Kurs nomi
+          maxLength: 255
+        description:
+          type: string
+          title: Tavsif
+        instructor:
+          type: integer
+          title: Domla
+        instructor_name:
+          type: string
+          readOnly: true
+        thumbnail:
+          type: string
+          format: uri
+          nullable: true
+          title: Muqova rasmi
+        category:
+          type: string
+          title: Kategoriya
+          maxLength: 100
+        difficulty:
+          allOf:
+          - $ref: '#/components/schemas/CourseDifficultyEnum'
+          title: Daraja
+        total_lessons:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Darslar soni
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Yaratilgan vaqti
+      required:
+      - category
+      - created_at
+      - description
+      - id
+      - instructor
+      - instructor_name
+      - title
+    CourseDifficultyEnum:
+      enum:
+      - beginner
+      - intermediate
+      - advanced
+      type: string
+      description: |-
+        * `beginner` - Boshlang'ich
+        * `intermediate` - O'rta
+        * `advanced` - Murakkab
+    CourseRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          title: Kurs nomi
+          maxLength: 255
+        description:
+          type: string
+          minLength: 1
+          title: Tavsif
+        instructor:
+          type: integer
+          title: Domla
+        thumbnail:
+          type: string
+          format: binary
+          nullable: true
+          title: Muqova rasmi
+        category:
+          type: string
+          minLength: 1
+          title: Kategoriya
+          maxLength: 100
+        difficulty:
+          allOf:
+          - $ref: '#/components/schemas/CourseDifficultyEnum'
+          title: Daraja
+        total_lessons:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Darslar soni
+      required:
+      - category
+      - description
+      - instructor
+      - title
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - password
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: integer
+          title: Foydalanuvchi
+        title:
+          type: string
+          title: Sarlavha
+          maxLength: 255
+        message:
+          type: string
+          title: Xabar
+        type:
+          allOf:
+          - $ref: '#/components/schemas/NotificationTypeEnum'
+          title: Turi
+        read:
+          type: boolean
+          title: O'qilgan
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Yaratilgan vaqti
+      required:
+      - created_at
+      - id
+      - message
+      - title
+      - user
+    NotificationRequest:
+      type: object
+      properties:
+        user:
+          type: integer
+          title: Foydalanuvchi
+        title:
+          type: string
+          minLength: 1
+          title: Sarlavha
+          maxLength: 255
+        message:
+          type: string
+          minLength: 1
+          title: Xabar
+        type:
+          allOf:
+          - $ref: '#/components/schemas/NotificationTypeEnum'
+          title: Turi
+        read:
+          type: boolean
+          title: O'qilgan
+      required:
+      - message
+      - title
+      - user
+    NotificationTypeEnum:
+      enum:
+      - info
+      - success
+      - warning
+      - error
+      type: string
+      description: |-
+        * `info` - Ma'lumot
+        * `success` - Muvaffaqiyat
+        * `warning` - Ogohlantirish
+        * `error` - Xato
+    PatchedAIMessageRequest:
+      type: object
+      properties:
+        user:
+          type: integer
+          title: Foydalanuvchi
+        role:
+          allOf:
+          - $ref: '#/components/schemas/AIMessageRoleEnum'
+          title: Rol
+        content:
+          type: string
+          minLength: 1
+          title: Matn
+        confidence:
+          type: number
+          format: double
+          nullable: true
+          title: Ishonchlilik
+        sources:
+          title: Manbalar
+    PatchedCourseRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          title: Kurs nomi
+          maxLength: 255
+        description:
+          type: string
+          minLength: 1
+          title: Tavsif
+        instructor:
+          type: integer
+          title: Domla
+        thumbnail:
+          type: string
+          format: binary
+          nullable: true
+          title: Muqova rasmi
+        category:
+          type: string
+          minLength: 1
+          title: Kategoriya
+          maxLength: 100
+        difficulty:
+          allOf:
+          - $ref: '#/components/schemas/CourseDifficultyEnum'
+          title: Daraja
+        total_lessons:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Darslar soni
+    PatchedNotificationRequest:
+      type: object
+      properties:
+        user:
+          type: integer
+          title: Foydalanuvchi
+        title:
+          type: string
+          minLength: 1
+          title: Sarlavha
+          maxLength: 255
+        message:
+          type: string
+          minLength: 1
+          title: Xabar
+        type:
+          allOf:
+          - $ref: '#/components/schemas/NotificationTypeEnum'
+          title: Turi
+        read:
+          type: boolean
+          title: O'qilgan
+    PatchedResourceRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          title: Resurs nomi
+          maxLength: 255
+        type:
+          allOf:
+          - $ref: '#/components/schemas/ResourceTypeEnum'
+          title: Turi
+        url:
+          type: string
+          format: uri
+          minLength: 1
+          maxLength: 200
+        size:
+          type: string
+          title: Hajmi
+          maxLength: 50
+        ai_topics:
+          title: AI mavzulari
+        course:
+          type: integer
+          title: Kurs
+        category:
+          type: string
+          minLength: 1
+          title: Kategoriya
+          maxLength: 100
+    PatchedStudentCourseProgressRequest:
+      type: object
+      properties:
+        student:
+          type: integer
+          title: Talaba
+        course:
+          type: integer
+          title: Kurs
+        completed_lessons:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Tugallangan darslar
+        total_lessons:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Jami darslar
+    PatchedTestRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          title: Test nomi
+          maxLength: 255
+        course:
+          type: integer
+          title: Kurs
+        duration:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Davomiyligi (daq)
+        ai_generated:
+          type: boolean
+          title: AI tomonidan yaratilgan
+        difficulty:
+          allOf:
+          - $ref: '#/components/schemas/TestDifficultyEnum'
+          title: Daraja
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionRequest'
+    Question:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        text:
+          type: string
+          title: Savol matni
+        options:
+          title: Variantlar
+        correct_answer:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: To'g'ri javob indeksi
+        explanation:
+          type: string
+          title: Izoh
+      required:
+      - correct_answer
+      - id
+      - text
+    QuestionRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+          title: Savol matni
+        options:
+          title: Variantlar
+        correct_answer:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: To'g'ri javob indeksi
+        explanation:
+          type: string
+          title: Izoh
+      required:
+      - correct_answer
+      - text
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 6
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        role:
+          allOf:
+          - $ref: '#/components/schemas/Role032Enum'
+          title: Rol
+      required:
+      - password
+    Resource:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          title: Resurs nomi
+          maxLength: 255
+        type:
+          allOf:
+          - $ref: '#/components/schemas/ResourceTypeEnum'
+          title: Turi
+        url:
+          type: string
+          format: uri
+          maxLength: 200
+        uploaded_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Yuklangan vaqti
+        size:
+          type: string
+          title: Hajmi
+          maxLength: 50
+        ai_topics:
+          title: AI mavzulari
+        course:
+          type: integer
+          title: Kurs
+        category:
+          type: string
+          title: Kategoriya
+          maxLength: 100
+      required:
+      - category
+      - course
+      - id
+      - title
+      - type
+      - uploaded_at
+      - url
+    ResourceRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          title: Resurs nomi
+          maxLength: 255
+        type:
+          allOf:
+          - $ref: '#/components/schemas/ResourceTypeEnum'
+          title: Turi
+        url:
+          type: string
+          format: uri
+          minLength: 1
+          maxLength: 200
+        size:
+          type: string
+          title: Hajmi
+          maxLength: 50
+        ai_topics:
+          title: AI mavzulari
+        course:
+          type: integer
+          title: Kurs
+        category:
+          type: string
+          minLength: 1
+          title: Kategoriya
+          maxLength: 100
+      required:
+      - category
+      - course
+      - title
+      - type
+      - url
+    ResourceTypeEnum:
+      enum:
+      - pdf
+      - pptx
+      - docx
+      - video
+      - link
+      type: string
+      description: |-
+        * `pdf` - PDF
+        * `pptx` - PPTX
+        * `docx` - DOCX
+        * `video` - Video
+        * `link` - Havola
+    Role032Enum:
+      enum:
+      - admin
+      - instructor
+      - student
+      type: string
+      description: |-
+        * `admin` - Admin
+        * `instructor` - Domla
+        * `student` - Talaba
+    StudentCourseProgress:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        student:
+          type: integer
+          title: Talaba
+        course:
+          type: integer
+          title: Kurs
+        course_title:
+          type: string
+          readOnly: true
+        completed_lessons:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Tugallangan darslar
+        total_lessons:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Jami darslar
+        progress:
+          type: number
+          format: double
+          readOnly: true
+          title: Progres (%)
+      required:
+      - course
+      - course_title
+      - id
+      - progress
+      - student
+    StudentCourseProgressRequest:
+      type: object
+      properties:
+        student:
+          type: integer
+          title: Talaba
+        course:
+          type: integer
+          title: Kurs
+        completed_lessons:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Tugallangan darslar
+        total_lessons:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Jami darslar
+      required:
+      - course
+      - student
+    Test:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          title: Test nomi
+          maxLength: 255
+        course:
+          type: integer
+          title: Kurs
+        duration:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Davomiyligi (daq)
+        ai_generated:
+          type: boolean
+          title: AI tomonidan yaratilgan
+        difficulty:
+          allOf:
+          - $ref: '#/components/schemas/TestDifficultyEnum'
+          title: Daraja
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+      required:
+      - course
+      - id
+      - title
+    TestDifficultyEnum:
+      enum:
+      - easy
+      - medium
+      - hard
+      type: string
+      description: |-
+        * `easy` - Oson
+        * `medium` - O'rta
+        * `hard` - Qiyin
+    TestRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          title: Test nomi
+          maxLength: 255
+        course:
+          type: integer
+          title: Kurs
+        duration:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Davomiyligi (daq)
+        ai_generated:
+          type: boolean
+          title: AI tomonidan yaratilgan
+        difficulty:
+          allOf:
+          - $ref: '#/components/schemas/TestDifficultyEnum'
+          title: Daraja
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionRequest'
+      required:
+      - course
+      - title
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        role:
+          allOf:
+          - $ref: '#/components/schemas/Role032Enum'
+          title: Rol
+        level:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Daraja
+        xp:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Tajriba (XP)
+        avatar:
+          type: string
+          format: uri
+          nullable: true
+      required:
+      - id
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'Login yoki Register orqali olingan access token. Format: Bearer
+        <token>'
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
