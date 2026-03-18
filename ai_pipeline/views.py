@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 from django.conf import settings
 from drf_spectacular.utils import extend_schema
+import datetime
 from courses.models import LessonResource, Test, Question
 from .tasks import process_resource_pipeline
 
@@ -31,9 +32,9 @@ class TriggerPipelineView(APIView):
         except LessonResource.DoesNotExist:
             return Response({"error": "Resurs topilmadi"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check ownership
-        if request.user.role == "instructor" and resource.lesson.course.instructor != request.user:
-            return Response({"error": "Ruxsat yo'q"}, status=status.HTTP_403_FORBIDDEN)
+        # Only allow instructors and admins to trigger processing
+        if request.user.role not in ['instructor', 'admin']:
+            return Response({"error": "Faqat instruktorlar va adminlar AI processing ishga tushirishi mumkin"}, status=status.HTTP_403_FORBIDDEN)
 
         # Only process if there's a file
         if not resource.file:
@@ -135,11 +136,11 @@ class GenerateQuizView(APIView):
             return Response({"error": f"Quiz generatsiyada xato: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # Delete old AI quiz for this lesson
-        Test.objects.filter(course=resource.lesson.course, ai_generated=True).delete()
+        # Test.objects.filter(course=resource.lesson.course, ai_generated=True).delete()
 
         # Create new test
         test = Test.objects.create(
-            title=f"AI Test: {resource.title}",
+            title=f"AI Test: {resource.title} - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             course=resource.lesson.course,
             duration=15,
             ai_generated=True,

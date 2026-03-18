@@ -1,5 +1,5 @@
 from celery import shared_task
-import tempfile, os, requests
+import tempfile, os, requests, datetime
 from django.conf import settings
 
 
@@ -145,12 +145,11 @@ def process_resource_pipeline_sync(resource_id: str):
         try:
             quiz_data = claude.generate_quiz(transcript, num_questions=10)
 
-            # Delete old AI-generated test for this resource's lesson
+            # Keep old AI-generated test, create new one
             resource_fresh = LessonResource.objects.get(id=resource_id)
-            Test.objects.filter(course=resource_fresh.lesson.course, ai_generated=True).delete()
 
             test = Test.objects.create(
-                title=f"AI Test: {resource_fresh.title}",
+                title=f"AI Test: {resource_fresh.title} - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
                 course=resource_fresh.lesson.course,
                 duration=15,
                 ai_generated=True,
@@ -305,12 +304,11 @@ def process_resource_pipeline(self, resource_id: str):
         try:
             quiz_data = claude.generate_quiz(transcript, num_questions=10)
 
-            # Delete old AI-generated test for this resource's lesson
+            # Keep old AI-generated test, create new one
             resource_fresh = LessonResource.objects.get(id=resource_id)
-            Test.objects.filter(course=resource_fresh.lesson.course, ai_generated=True).delete()
 
             test = Test.objects.create(
-                title=f"AI Test: {resource_fresh.title}",
+                title=f"AI Test: {resource_fresh.title} - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
                 course=resource_fresh.lesson.course,
                 duration=15,
                 ai_generated=True,
@@ -376,3 +374,5 @@ def analyze_quiz_results_task(test_result_id: int):
     except Exception as e:
         print(f"Quiz analysis failed: {e}")
         return {"status": "error", "message": str(e)}
+
+

@@ -68,7 +68,7 @@ class ClaudeService:
         if not settings.ANTHROPIC_API_KEY:
             raise ValueError("ANTHROPIC_API_KEY sozlanmagan")
         self.client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        self.model = "claude-3-5-sonnet-20241022"
+        self.model = "claude-sonnet-4-6"
     
     def generate_video_script(self, text: str, language: str = "uzbek") -> str:
         """Generate engaging video script from educational text"""
