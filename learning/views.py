@@ -152,7 +152,7 @@ class StudentProgressView(APIView):
         
         # Get completed lessons count
         completed_lessons = LessonResource.objects.filter(
-            lesson__course__courseenrollment__student=user,
+            lesson__course__enrollments__student=user,
             processing_status='ready'
         ).count()
         

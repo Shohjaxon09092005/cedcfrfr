@@ -8,18 +8,19 @@ from courses.models import LessonResource, Test, Question
 from .tasks import process_resource_pipeline
 
 
-class TriggerPipelineView(APIView):
+class VideoProcessingView(APIView):
     """
-    POST /api/ai/process/{resource_id}/
-    Triggers the full AI pipeline for a LessonResource:
-    file -> text extraction -> Claude script -> ElevenLabs audio -> Kling video -> quiz generation
+    POST /api/ai/process-video/{resource_id}/
+    Triggers VIDEO ONLY pipeline for a LessonResource:
+    file -> text extraction -> Claude script -> ElevenLabs audio -> Kling video
+    Does NOT generate test. Test must be created separately via /api/ai/generate-quiz/
     Returns immediately. Use WebSocket ws/resource/{id}/ or /api/ai/status/{id}/ to track progress.
     """
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(
-        summary="AI pipeline ishga tushirish",
-        description="LessonResource uchun to'liq AI pipeline (matn→skript→audio→video→test) ni Celery orqali ishga tushiradi.",
+        summary="Video yaratish pipeline",
+        description="LessonResource uchun video yaratish pipeline ni ishga tushiradi (test yaratilmaydi).",
         responses={202: {"type": "object", "properties": {
             "message": {"type": "string"},
             "resource_id": {"type": "integer"},
@@ -40,13 +41,71 @@ class TriggerPipelineView(APIView):
         if not resource.file:
             return Response({"error": "Fayl yuklanmagan"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Trigger async video-only task
+        try:
+            from .tasks import process_resource_video_only
+            task = process_resource_video_only.delay(str(resource_id))
+            return Response({
+                "message": "Video pipeline ishga tushirildi (test yaratilmaydi)",
+                "resource_id": resource_id,
+                "task_id": task.id,
+            }, status=status.HTTP_202_ACCEPTED)
+        except Exception as e:
+            # If Celery/Redis not available, run synchronously for testing
+            print(f"Celery not available, running synchronously: {e}")
+            try:
+                from .tasks import process_resource_video_only_sync
+                result = process_resource_video_only_sync(str(resource_id))
+                return Response({
+                    "message": "Video pipeline sinxron bajarildi",
+                    "resource_id": resource_id,
+                    "result": result,
+                }, status=status.HTTP_200_OK)
+            except Exception as sync_error:
+                return Response({
+                    "error": f"Video pipeline xatosi: {str(sync_error)}",
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class TriggerPipelineView(APIView):
+    """
+    POST /api/ai/process/{resource_id}/
+    Triggers the full AI pipeline for a LessonResource:
+    file -> text extraction -> Claude script -> ElevenLabs audio -> Kling video -> quiz generation
+    Returns immediately. Use WebSocket ws/resource/{id}/ or /api/ai/status/{id}/ to track progress.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        summary="To'liq AI pipeline ishga tushirish",
+        description="LessonResource uchun to'liq AI pipeline (matn→skript→audio→video→test) ni Celery orqali ishga tushiradi.",
+        responses={202: {"type": "object", "properties": {
+            "message": {"type": "string"},
+            "resource_id": {"type": "integer"},
+            "task_id": {"type": "string"},
+        }}}
+    )
+    def post(self, request, resource_id):
+        try:
+            resource = LessonResource.objects.get(id=resource_id)
+        except LessonResource.DoesNotExist:
+            return Response({"error": "Resurs topilmadi"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Only allow instructors and admins to trigger processing
+        if request.user.role not in ['instructor', 'admin']:
+            return Response({"error": "Faqat instruktorlar va adminlar AI processing ishga tushirishi mumkin"}, status=status.HTTP_403_FORBIDDEN)
+
+        # Only process if there's a filez
+        if not resource.file:
+            return Response({"error": "Fayl yuklanmagan"}, status=status.HTTP_400_BAD_REQUEST)
+
         # Trigger Celery task
         # For development/testing, run synchronously if Redis not available
         try:
             # Try to trigger async task
             task = process_resource_pipeline.delay(str(resource_id))
             return Response({
-                "message": "AI pipeline ishga tushirildi",
+                "message": "To'liq AI pipeline ishga tushirildi (video va test yaratiladi)",
                 "resource_id": resource_id,
                 "task_id": task.id,
             }, status=status.HTTP_202_ACCEPTED)
@@ -58,7 +117,7 @@ class TriggerPipelineView(APIView):
                 from .tasks import process_resource_pipeline_sync
                 result = process_resource_pipeline_sync(str(resource_id))
                 return Response({
-                    "message": "AI pipeline sinxron bajarildi",
+                    "message": "To'liq AI pipeline sinxron bajarildi",
                     "resource_id": resource_id,
                     "result": result,
                 }, status=status.HTTP_200_OK)
@@ -92,11 +151,12 @@ class ResourceStatusView(APIView):
         except LessonResource.DoesNotExist:
             return Response({"error": "Resurs topilmadi"}, status=status.HTTP_404_NOT_FOUND)
 
-        has_quiz = Test.objects.filter(course=resource.lesson.course, ai_generated=True).exists()
+        # Check if this resource has a quiz
+        has_quiz = resource.has_quiz or Test.objects.filter(resource=resource, ai_generated=True).exists()
 
         return Response({
             "status": getattr(resource, "processing_status", "unknown"),
-            "video_url": resource.url or "",
+            "video_url": resource.video_url or resource.url or "",
             "audio_url": getattr(resource, "audio_url", ""),
             "has_quiz": has_quiz,
             "error_message": getattr(resource, "error_message", ""),
@@ -107,12 +167,20 @@ class GenerateQuizView(APIView):
     """
     POST /api/ai/generate-quiz/{resource_id}/
     Manually (re)generate AI quiz from a LessonResource's transcript.
-    Deletes existing AI-generated quiz for this lesson, creates new one.
+    Domla tanlay olishi mumkin:
+    - duration: Test davomiyligi (minut), default: 30
+    - difficulty: Darajasi (easy/medium/hard), default: medium
+    - num_questions: Savollar soni, default: 10
     """
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(
         summary="AI test generatsiyasi",
+        request={"type": "object", "properties": {
+            "duration": {"type": "integer", "description": "Davomiyligi (minut)", "default": 15},
+            "difficulty": {"type": "string", "description": "Darajasi (easy/medium/hard/mixed)", "default": "medium"},
+            "num_questions": {"type": "integer", "description": "Savollar soni", "default": 10},
+        }},
         responses={201: {"type": "object", "properties": {
             "test_id": {"type": "integer"},
             "question_count": {"type": "integer"},
@@ -128,23 +196,50 @@ class GenerateQuizView(APIView):
         if not transcript:
             return Response({"error": "Transkript mavjud emas. Avval AI pipeline ishga tushiring."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Get parameters from request, with defaults
+        duration = request.data.get("duration", 15)
+        difficulty = request.data.get("difficulty", "medium")
+        num_questions = request.data.get("num_questions", 10)
+
+        # Validate parameters
+        try:
+            duration = int(duration)
+            if duration < 5 or duration > 120:
+                raise ValueError("Davomiyligi 5 dan 120 minutgacha bo'lishi kerak")
+        except (ValueError, TypeError):
+            return Response({"error": "Davomiyligi noto'g'ri: 5-120 minut orasida bo'lishi kerak"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if difficulty not in ["easy", "medium", "hard", "mixed"]:
+            return Response({"error": "Darajasi noto'g'ri: easy, medium, hard yoki mixed bo'lishi kerak"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            num_questions = int(num_questions)
+            if num_questions < 5 or num_questions > 30:
+                raise ValueError("Savollar soni 5 dan 30 gacha bo'lishi kerak")
+        except (ValueError, TypeError):
+            return Response({"error": "Savollar soni noto'g'ri: 5-30 orasida bo'lishi kerak"}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             from .services import ClaudeService
             claude = ClaudeService()
-            quiz_data = claude.generate_quiz(transcript, num_questions=10)
+            quiz_data = claude.generate_quiz(transcript, num_questions=num_questions, difficulty=difficulty)
         except Exception as e:
             return Response({"error": f"Quiz generatsiyada xato: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Delete old AI quiz for this lesson
-        # Test.objects.filter(course=resource.lesson.course, ai_generated=True).delete()
+        # Delete only this resource's old AI-generated tests
+        Test.objects.filter(
+            resource=resource,
+            ai_generated=True
+        ).delete()
 
-        # Create new test
+        # Create new test with custom parameters
         test = Test.objects.create(
             title=f"AI Test: {resource.title} - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             course=resource.lesson.course,
-            duration=15,
+            resource=resource,
+            duration=duration,
             ai_generated=True,
-            difficulty="medium",
+            difficulty=difficulty,
         )
         # Create questions
         for i, q in enumerate(quiz_data.get("questions", [])):
@@ -159,6 +254,8 @@ class GenerateQuizView(APIView):
         return Response({
             "test_id": test.id,
             "question_count": test.questions.count(),
+            "duration": duration,
+            "difficulty": difficulty,
         }, status=status.HTTP_201_CREATED)
 
 

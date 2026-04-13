@@ -161,6 +161,8 @@ class LessonResource(models.Model):
         default="idle",
     )
     error_message = models.TextField("Xato xabari", blank=True, default="")
+    video_url = models.URLField("Video URL", blank=True, default="")
+    has_quiz = models.BooleanField("Test mavjud", default=False)
 
     class Meta:
         verbose_name = "Dars Resurs"
@@ -184,6 +186,14 @@ class Test(models.Model):
         on_delete=models.CASCADE,
         related_name="tests",
         verbose_name="Kurs",
+    )
+    resource = models.ForeignKey(
+        "LessonResource",
+        on_delete=models.CASCADE,
+        related_name="tests",
+        verbose_name="Dars Resurs",
+        null=True,
+        blank=True,
     )
     duration = models.PositiveIntegerField("Davomiyligi (daq)", default=30)
     ai_generated = models.BooleanField("AI tomonidan yaratilgan", default=False)

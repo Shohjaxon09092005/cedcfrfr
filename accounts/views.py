@@ -134,7 +134,7 @@ class InstructorStudentsView(APIView):
         # Get students enrolled in courses taught by this instructor
         students = User.objects.filter(
             role='student',
-            courseenrollment__course__instructor=request.user
+            enrollments__course__instructor=request.user
         ).distinct().values(
             'id', 'first_name', 'last_name', 'email', 'level', 'xp', 'date_joined'
         )
@@ -197,7 +197,7 @@ class StudentStatsView(APIView):
         # Get students enrolled in courses taught by this instructor
         students = User.objects.filter(
             role='student',
-            courseenrollment__course__instructor=request.user
+            enrollments__course__instructor=request.user
         ).distinct()
         
         total = students.count()
@@ -208,7 +208,7 @@ class StudentStatsView(APIView):
             course__instructor=request.user,
             student__in=students
         ).filter(
-            Q(enrolled_at__gte=thirty_days_ago) | Q(updated_at__gte=thirty_days_ago)
+            enrolled_at__gte=thirty_days_ago
         ).values_list('student_id', flat=True).distinct().count()
         
         inactive = total - active_students

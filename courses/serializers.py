@@ -181,7 +181,7 @@ class CourseEnrollmentSerializer(serializers.ModelSerializer):
             "enrolled_at",
             "progress_percent",
         ]
-        read_only_fields = ["id", "enrolled_at"]
+        read_only_fields = ["id", "enrolled_at", "student", "student_name"]
     
     def get_student_name(self, obj):
         return obj.student.email or obj.student.get_full_name()

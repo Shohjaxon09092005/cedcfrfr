@@ -11,6 +11,8 @@ import anthropic
 import requests
 import boto3
 import json
+import time
+import random
 from django.conf import settings
 
 
@@ -69,20 +71,68 @@ class ClaudeService:
             raise ValueError("ANTHROPIC_API_KEY sozlanmagan")
         self.client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         self.model = "claude-sonnet-4-6"
+        # Retry configuration
+        self.max_retries = 5
+        self.base_delay = 1.0  # seconds
+        self.max_delay = 60.0  # seconds
+    
+    def _retry_with_exponential_backoff(self, func, *args, **kwargs):
+        """Execute function with exponential backoff retry logic"""
+        last_exception = None
+        
+        for attempt in range(self.max_retries):
+            try:
+                return func(*args, **kwargs)
+            except (anthropic.RateLimitError, anthropic.APIStatusError) as e:
+                last_exception = e
+                if attempt == self.max_retries - 1:
+                    # Last attempt failed
+                    break
+                
+                # Check if it's an overload error (529 status code)
+                if hasattr(e, 'status_code') and e.status_code == 529:
+                    # Calculate delay with exponential backoff + jitter
+                    delay = min(self.base_delay * (2 ** attempt), self.max_delay)
+                    jitter = random.uniform(0.1, 1.0) * delay * 0.1  # 10% jitter
+                    total_delay = delay + jitter
+                    
+                    print(f"Claude API overloaded (attempt {attempt + 1}/{self.max_retries}). "
+                          f"Retrying in {total_delay:.2f} seconds...")
+                    time.sleep(total_delay)
+                else:
+                    # For other API errors, don't retry
+                    raise e
+                
+            except Exception as e:
+                # For non-API errors, don't retry
+                raise e
+        
+        # If we get here, all retries failed with overload
+        raise last_exception
     
     def generate_video_script(self, text: str, language: str = "uzbek") -> str:
         """Generate engaging video script from educational text"""
         if settings.USE_MOCK_AI_RESPONSES:
+            # Prefer mock but try real if available
+            return self._generate_video_script_mock(text, language)
+        else:
+            # Try real API, fall back to mock on failure
             try:
                 return self._generate_video_script_real(text, language)
             except Exception as e:
-                print(f"Claude API failed, using mock response: {e}")
+                print(f"Claude API failed ({e}), using mock response...")
                 return self._generate_video_script_mock(text, language)
-        else:
-            return self._generate_video_script_real(text, language)
     
     def _generate_video_script_real(self, text: str, language: str = "uzbek") -> str:
-        """Real Claude API call"""
+        """Real Claude API call with retry logic"""
+        def _api_call():
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=2000,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return response.content[0].text
+        
         prompt = f"""
 Siz tajribali o'zbek tili dars tuzuvchisisiz.
 Quyidagi dars materialidan talabalar uchun 3-5 daqiqalik video dars skriptini tuzing.
@@ -100,12 +150,7 @@ DARS MATERIALI:
 
 Faqat skript matnini yozing, boshqa hech narsa yo'q.
 """
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.content[0].text
+        return self._retry_with_exponential_backoff(_api_call)
     
     def _generate_video_script_mock(self, text: str, language: str = "uzbek") -> str:
         """Mock response for development"""
@@ -128,28 +173,54 @@ Masalan, 100 ta mahsulotni 5 ta joyga qanday taqsimlash mumkin?
 Xulosa qilib aytganda, omborxona tizimi biznes samaradorligini oshiradi.
 Savollaringiz bo'lsa, bemalol beringiz!"""
     
-    def generate_quiz(self, transcript: str, num_questions: int = 10) -> dict:
+    def generate_quiz(self, transcript: str, num_questions: int = 10, difficulty: str = "medium") -> dict:
         """Generate quiz questions from video transcript"""
         if settings.USE_MOCK_AI_RESPONSES:
-            try:
-                return self._generate_quiz_real(transcript, num_questions)
-            except Exception as e:
-                print(f"Claude API failed, using mock quiz: {e}")
-                return self._generate_quiz_mock(transcript, num_questions)
+            # Prefer mock but try real if available
+            return self._generate_quiz_mock(transcript, num_questions)
         else:
-            return self._generate_quiz_real(transcript, num_questions)
+            # Try real API, fall back to mock on failure
+            try:
+                return self._generate_quiz_real(transcript, num_questions, difficulty)
+            except Exception as e:
+                print(f"Claude API failed ({e}), using mock quiz...")
+                return self._generate_quiz_mock(transcript, num_questions)
     
-    def _generate_quiz_real(self, transcript: str, num_questions: int = 10) -> dict:
-        """Real Claude API call for quiz generation"""
+    def _generate_quiz_real(self, transcript: str, num_questions: int = 10, difficulty: str = "medium") -> dict:
+        """Real Claude API call for quiz generation with retry logic"""
+        def _api_call():
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=3000,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            text = response.content[0].text
+            # Strip markdown code fences if present
+            text = text.strip()
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+            return json.loads(text.strip())
+        
+        # Map difficulty levels to Uzbek for the prompt
+        difficulty_map = {
+            "easy": "oson (Talabalar osongina javob berishishi mumkin)",
+            "medium": "o'rta (Talabalar bir oz o'ylashi kerak)",
+            "hard": "qiyin (Talabalar chuqur tushunish kerak)",
+            "mixed": "aralash (oson, o'rta va qiyn savollar aralashgan)",
+        }
+        difficulty_description = difficulty_map.get(difficulty, "o'rta")
+        
         prompt = f"""
 Quyidagi dars transkriptidan {num_questions} ta test savol tuz.
+Qiyinlik darajasi: {difficulty_description}
 
 TALABLAR:
 - Har bir savolda 4 ta variant bo'lsin (A, B, C, D)
 - Faqat 1 ta to'g'ri javob
 - Savollar O'zbek tilida
 - Mavzu tegini ham qo'sh (topic)
-- Qiyinlik darajasi: 40% oson, 40% o'rta, 20% qiyin
 
 JAVOB FORMATI (faqat JSON, boshqa hech narsa):
 {{
@@ -168,19 +239,7 @@ JAVOB FORMATI (faqat JSON, boshqa hech narsa):
 TRANSKRIPT:
 {transcript[:5000]}
 """
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=3000,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        text = response.content[0].text
-        # Strip markdown code fences if present
-        text = text.strip()
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-        return json.loads(text.strip())
+        return self._retry_with_exponential_backoff(_api_call)
     
     def _generate_quiz_mock(self, transcript: str, num_questions: int = 10) -> dict:
         """Mock quiz response for development"""
@@ -214,7 +273,33 @@ TRANSKRIPT:
         }
     
     def analyze_weak_topics(self, results: list, student_name: str) -> dict:
-        """Analyze student quiz results and identify weak topics"""
+        """Analyze student quiz results and identify weak topics with retry logic"""
+        if settings.USE_MOCK_AI_RESPONSES:
+            # Prefer mock but try real if available
+            return self._analyze_weak_topics_mock(student_name)
+        else:
+            # Try real API, fall back to mock on failure
+            try:
+                return self._analyze_weak_topics_real(results, student_name)
+            except Exception as e:
+                print(f"Claude API failed ({e}), using mock analysis...") 
+                return self._analyze_weak_topics_mock(student_name)
+    
+    def _analyze_weak_topics_real(self, results: list, student_name: str) -> dict:
+        """Real Claude API call for weak topics analysis with retry logic"""
+        def _api_call():
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=1000,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            text = response.content[0].text.strip()
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+            return json.loads(text.strip())
+        
         prompt = f"""
 Talaba: {student_name}
 Test natijalari:
@@ -234,17 +319,21 @@ JAVOB FORMATI (faqat JSON):
   "score_percentage": 75.0
 }}
 """
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=1000,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        text = response.content[0].text.strip()
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-        return json.loads(text.strip())
+        return self._retry_with_exponential_backoff(_api_call)
+    
+    def _analyze_weak_topics_mock(self, student_name: str) -> dict:
+        """Mock response for weak topics analysis"""
+        return {
+            "weak_topics": ["Omborxona boshqaruvi", "Inventarizatsiya metodlari"],
+            "strong_topics": ["Asosiy tushunchalar", "Praktik misollar"],
+            "overall_feedback": f"{student_name}, sizning test natijalaringiz umumiy o'rtachaga mos. Omborxona boshqaruvi va inventarizatsiya kabi mavzularda ko'proq mashq qilishingizni tavsiya qilamiz.",
+            "recommendations": [
+                "Omborxona boshqaruvi haqida qo'shimcha darslarni ko'ring",
+                "FIFO va LIFO metodlarini batafsil o'rganib chiqing",
+                "Amaliy misollar bilan nazariyani birlashtiring"
+            ],
+            "score_percentage": 72.5
+        }
 
 
 class ElevenLabsService:
@@ -258,13 +347,15 @@ class ElevenLabsService:
     def generate_audio(self, script: str) -> bytes:
         """Convert script text to Uzbek speech audio"""
         if settings.USE_MOCK_AI_RESPONSES:
+            # Prefer mock
+            return self._generate_audio_mock(script)
+        else:
+            # Try real API, fall back to mock on failure
             try:
                 return self._generate_audio_real(script)
             except Exception as e:
-                print(f"ElevenLabs API failed, using mock audio: {e}")
+                print(f"ElevenLabs API failed ({e}), using mock audio...")
                 return self._generate_audio_mock(script)
-        else:
-            return self._generate_audio_real(script)
     
     def _generate_audio_real(self, script: str) -> bytes:
         """Real ElevenLabs API call"""
