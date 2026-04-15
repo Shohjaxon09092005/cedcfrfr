@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views import CourseViewSet, ResourceViewSet, TestViewSet, StatisticsViewSet, CategoryViewSet, LessonViewSet, LessonResourceViewSet, TestResultViewSet, CourseEnrollmentViewSet
+from .views import CourseViewSet, ResourceViewSet, TestViewSet, StatisticsViewSet, CategoryViewSet, LessonViewSet, LessonResourceViewSet, TestResultViewSet, CourseEnrollmentViewSet, StudentCourseProgressView
 
 router = DefaultRouter()
 router.register(r"categories", CategoryViewSet, basename="category")
@@ -16,5 +16,6 @@ router.register(r"statistics", StatisticsViewSet, basename="statistics")
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("student-course-progress/", StudentCourseProgressView.as_view(), name="student-course-progress"),
 ]
 

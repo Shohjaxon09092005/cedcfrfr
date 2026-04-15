@@ -3,6 +3,7 @@ from rest_framework import viewsets, permissions, status, serializers
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from .models import Course, Resource, Test, Category, Lesson, LessonResource, TestResult, CourseEnrollment
@@ -239,6 +240,188 @@ class StatisticsViewSet(viewsets.ViewSet):
             "averageScore": 0,
         }
         return Response(data)
+
+
+class StudentCourseProgressView(APIView):
+    """
+    Talaba kurs bo'yicha detaliy progress ma'lumoti:
+    - Qaysi dars bo'yicha ketayotgani
+    - Testlar tugatilganligi
+    - Kurs tugatilganligi
+    - Yutuqlar (achievements)
+    
+    GET /api/courses/student-course-progress/?student_id=X&course_id=Y
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Q, Count
+        
+        student_id = request.query_params.get('student_id')
+        course_id = request.query_params.get('course_id')
+        
+        if not student_id or not course_id:
+            return Response(
+                {"error": "student_id va course_id parametrlari talab qilinadi"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Get course enrollment
+            enrollment = CourseEnrollment.objects.get(
+                student_id=student_id,
+                course_id=course_id
+            )
+        except CourseEnrollment.DoesNotExist:
+            return Response(
+                {"error": "Talaba bu kursga yozilgan emas"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get course lessons
+        lessons = Lesson.objects.filter(course_id=course_id).order_by('order')
+        
+        lessons_data = []
+        for lesson in lessons:
+            resources = LessonResource.objects.filter(lesson=lesson)
+            
+            # Check if all resources in lesson are marked as ready (watched/completed)
+            total_resources = resources.count()
+            ready_resources = resources.filter(processing_status='ready').count()
+            lesson_completed = total_resources > 0 and ready_resources == total_resources
+            
+            # Get tests for this lesson
+            tests = Test.objects.filter(
+                questions__related_to_lesson_id=lesson.id
+            ).distinct()
+            
+            tests_data = []
+            for test in tests:
+                test_results = TestResult.objects.filter(
+                    student_id=student_id,
+                    test=test
+                ).order_by('-created_at')
+                
+                test_passed = test_results.filter(score__gte=60).exists()
+                best_score = test_results.first().score if test_results.exists() else 0
+                
+                tests_data.append({
+                    'id': test.id,
+                    'title': test.title,
+                    'passed': test_passed,
+                    'bestScore': best_score,
+                    'totalAttempts': test_results.count(),
+                    'completedAt': test_results.first().created_at.isoformat() if test_results.exists() else None,
+                })
+            
+            lessons_data.append({
+                'id': lesson.id,
+                'title': lesson.title,
+                'description': lesson.description,
+                'order': lesson.order,
+                'resources': {
+                    'total': total_resources,
+                    'ready': ready_resources,
+                },
+                'completed': lesson_completed,
+                'tests': tests_data,
+            })
+        
+        # Get all course tests (not just lesson-specific)
+        course_tests = Test.objects.filter(questions__test=TestResult.objects.filter(test__questions__question_text__isnull=False)).distinct()
+        
+        # Calculate course completion
+        course_tests = Test.objects.all()[:20]  # Get sample tests for now
+        completed_tests = TestResult.objects.filter(
+            student_id=student_id,
+            score__gte=60
+        ).values('test').distinct().count()
+        
+        course_completed = len(lessons_data) > 0 and all(
+            lesson['completed'] and len(lesson['tests']) > 0 and all(t['passed'] for t in lesson['tests'])
+            for lesson in lessons_data if lesson['tests']
+        )
+        
+        # Calculate overall progress
+        overall_progress = 0
+        if lessons_data:
+            completed_lessons = sum(1 for l in lessons_data if l['completed'])
+            overall_progress = int((completed_lessons / len(lessons_data)) * 100)
+        
+        # Get or create achievements
+        achievements = self._generate_achievements(student_id, course_id, enrollment)
+        
+        return Response({
+            'enrollment': {
+                'enrolledAt': enrollment.enrolled_at.isoformat(),
+                'progressPercent': enrollment.progress_percent,
+            },
+            'course': {
+                'id': enrollment.course.id,
+                'title': enrollment.course.title,
+                'totalLessons': len(lessons_data),
+            },
+            'progress': {
+                'overallPercent': overall_progress,
+                'completed': course_completed,
+                'lessonsCompleted': sum(1 for l in lessons_data if l['completed']),
+                'testsCompleted': completed_tests,
+            },
+            'lessons': lessons_data,
+            'achievements': achievements,
+        })
+    
+    def _generate_achievements(self, student_id, course_id, enrollment):
+        """Generate dynamic achievements based on progress"""
+        from datetime import datetime, timedelta
+        
+        achievements = []
+        
+        # Achievement 1: Course started
+        if enrollment.enrolled_at:
+            achievements.append({
+                'id': f'course_{course_id}_started',
+                'name': 'Kursni boshladi',
+                'description': 'Kursga yozilish',
+                'icon': '🎓',
+                'type': 'course_start',
+                'earnedAt': enrollment.enrolled_at.isoformat(),
+                'points': 10,
+            })
+        
+        # Achievement 2: First test passed
+        test_results = TestResult.objects.filter(
+            student_id=student_id,
+            test__questions__test__isnull=False
+        ).distinct()
+        
+        if test_results.exists():
+            first_test = test_results.order_by('created_at').first()
+            if first_test.score >= 60:
+                achievements.append({
+                    'id': f'course_{course_id}_first_test',
+                    'name': 'Birinchi test',
+                    'description': 'Birinchi testni topshirdi',
+                    'icon': '✅',
+                    'type': 'test_passed',
+                    'earnedAt': first_test.created_at.isoformat(),
+                    'points': 20,
+                })
+        
+        # Achievement 3: High scores (3+ tests with 80%+)
+        high_score_tests = test_results.filter(score__gte=80)
+        if high_score_tests.count() >= 3:
+            achievements.append({
+                'id': f'course_{course_id}_high_scores',
+                'name': 'Yuqori natija',
+                'description': '3 ta testda 80%+ ball oling',
+                'icon': '⭐',
+                'type': 'high_scores',
+                'earnedAt': high_score_tests.order_by('-created_at').first().created_at.isoformat(),
+                'points': 50,
+            })
+        
+        return achievements
 
 
 @extend_schema_view(
