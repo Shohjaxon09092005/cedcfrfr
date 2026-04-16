@@ -1,0 +1,65 @@
+services:
+  - type: web
+    name: eduai-backend
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate"
+    startCommand: "gunicorn eduai_backend.wsgi:application"
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: eduai-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: eduai-redis
+          property: connectionString
+      - key: FRONTEND_URL
+        value: "https://edu-ai-three-henna.vercel.app/"   # ← Vercel URL ingizni yozing
+      - key: USE_MOCK_AI_RESPONSES
+        value: "false"
+      - key: ANTHROPIC_API_KEY
+        sync: false   # ← Render dashboard'dan qo'lda kiritasiz
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: KLING_ACCESS_KEY
+        sync: false
+      - key: KLING_SECRET_KEY
+        sync: false
+
+  - type: worker
+    name: eduai-celery-worker
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "celery -A eduai_backend worker --loglevel=info --concurrency=1"
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: eduai-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: eduai-redis
+          property: connectionString
+
+databases:
+  - name: eduai-db
+    databaseName: eduai
+    user: eduai_user
+    plan: free
+
+  - name: eduai-redis
+    plan: free
