@@ -13,7 +13,7 @@ services:
       - key: DJANGO_ALLOWED_HOSTS
         value: ".onrender.com"
       - key: DATABASE_URL
-        value:"postgresql://eduai_redis_user:bBghyQdJ1ZPUOqecgkkGhQzI6bZNo0qq@dpg-d7g8e4lckfvc73b3f0pg-a/eduai_redis" 
+        value: "postgresql://eduai_redis_user:bBghyQdJ1ZPUOqecgkkGhQzI6bZNo0qq@dpg-d7g8e4lckfvc73b3f0pg-a/eduai_redis"
       - key: REDIS_URL
         fromService:
           type: redis
@@ -44,7 +44,7 @@ services:
       - key: DJANGO_DEBUG
         value: "false"
       - key: DATABASE_URL
-        value:"postgresql://eduai_redis_user:bBghyQdJ1ZPUOqecgkkGhQzI6bZNo0qq@dpg-d7g8e4lckfvc73b3f0pg-a/eduai_redis" 
+        value: "postgresql://eduai_redis_user:bBghyQdJ1ZPUOqecgkkGhQzI6bZNo0qq@dpg-d7g8e4lckfvc73b3f0pg-a/eduai_redis"
       - key: REDIS_URL
         fromService:
           type: redis
