@@ -13,9 +13,7 @@ services:
       - key: DJANGO_ALLOWED_HOSTS
         value: ".onrender.com"
       - key: DATABASE_URL
-        fromDatabase:
-          name: eduai-db
-          property: connectionString
+        value:"postgresql://eduai_redis_user:bBghyQdJ1ZPUOqecgkkGhQzI6bZNo0qq@dpg-d7g8e4lckfvc73b3f0pg-a/eduai_redis" 
       - key: REDIS_URL
         fromService:
           type: redis
@@ -46,24 +44,14 @@ services:
       - key: DJANGO_DEBUG
         value: "false"
       - key: DATABASE_URL
-        fromDatabase:
-          name: eduai-db
-          property: connectionString
+        value:"postgresql://eduai_redis_user:bBghyQdJ1ZPUOqecgkkGhQzI6bZNo0qq@dpg-d7g8e4lckfvc73b3f0pg-a/eduai_redis" 
       - key: REDIS_URL
         fromService:
           type: redis
           name: eduai-redis
           property: connectionString
-          
+
   - type: redis          # ← BU YERDA! Redis service sifatida
     name: eduai-redis
     plan: free
     ipAllowList: []
-databases:
-  - name: eduai-db
-    databaseName: eduai
-    user: eduai_user
-    plan: free
-
-  - name: eduai-redis
-    plan: free
