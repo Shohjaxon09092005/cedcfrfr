@@ -54,7 +54,11 @@ services:
           type: redis
           name: eduai-redis
           property: connectionString
-
+          
+  - type: redis          # ← BU YERDA! Redis service sifatida
+    name: eduai-redis
+    plan: free
+    ipAllowList: []
 databases:
   - name: eduai-db
     databaseName: eduai
