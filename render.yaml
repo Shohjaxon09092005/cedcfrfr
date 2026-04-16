@@ -20,7 +20,7 @@ services:
           name: eduai-redis
           property: connectionString
       - key: FRONTEND_URL
-        value: "https://edu-ai-three-henna.vercel.app/"   # ← Vercel URL ingizni yozing
+        value: "https://edu-ai-three-henna.vercel.app"   # ← Vercel URL ingizni yozing
       - key: USE_MOCK_AI_RESPONSES
         value: "false"
       - key: ANTHROPIC_API_KEY
