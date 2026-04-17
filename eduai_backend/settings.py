@@ -232,20 +232,33 @@ SIMPLE_JWT = {
 }
 
 # ══════════════════════════════════════════════
-# SUPABASE STORAGE CONFIGURATION
+# STORAGE CONFIGURATION
 # ══════════════════════════════════════════════
 if os.environ.get('USE_SUPABASE', 'false').lower() == 'true':
-    AWS_ACCESS_KEY_ID = os.environ.get('SUPABASE_SERVICE_KEY')
-    AWS_SECRET_ACCESS_KEY = os.environ.get('SUPABASE_SERVICE_KEY')
+    # Supabase S3 sozlamalari
+    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
     AWS_STORAGE_BUCKET_NAME = 'media'
     AWS_S3_REGION_NAME = 'ap-southeast-1'
     AWS_S3_ENDPOINT_URL = os.environ.get('SUPABASE_URL') + '/storage/v1/s3'
     AWS_S3_ADDRESSING_STYLE = 'path'
     AWS_DEFAULT_ACL = 'public-read'
     AWS_QUERYSTRING_AUTH = False
+    AWS_S3_FILE_OVERWRITE = False
 
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-    MEDIA_URL = os.environ.get('SUPABASE_URL') + '/storage/v1/object/public/media/'
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
+
+    MEDIA_URL = (
+        os.environ.get('SUPABASE_URL')
+        + '/storage/v1/object/public/media/'
+    )
 else:
     MEDIA_URL = "/media/"
     MEDIA_ROOT = BASE_DIR / "media"
