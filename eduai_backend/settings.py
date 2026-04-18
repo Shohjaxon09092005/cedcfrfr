@@ -239,8 +239,8 @@ if os.environ.get('USE_SUPABASE', 'false').lower() == 'true':
     AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
     AWS_STORAGE_BUCKET_NAME = 'media'
-    AWS_S3_REGION_NAME = 'ap-southeast-1'
-    AWS_S3_ENDPOINT_URL = os.environ.get('SUPABASE_URL') + '/storage/v1/s3'
+    AWS_S3_REGION_NAME = 'ap-northeast-1'
+    AWS_S3_ENDPOINT_URL = 'https://prexzsvxzxampyofojux.storage.supabase.co/storage/v1/s3'
     AWS_S3_ADDRESSING_STYLE = 'path'
     AWS_DEFAULT_ACL = 'public-read'
     AWS_QUERYSTRING_AUTH = False
