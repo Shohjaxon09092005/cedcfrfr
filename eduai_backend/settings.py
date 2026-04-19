@@ -241,7 +241,7 @@ if os.environ.get('USE_SUPABASE', 'false').lower() == 'true':
     AWS_STORAGE_BUCKET_NAME = 'media'
     AWS_S3_REGION_NAME = 'ap-northeast-1'
     AWS_S3_ENDPOINT_URL = 'https://prexzsvxzxampyofojux.storage.supabase.co/storage/v1/s3'  # yuklash uchun
-    MEDIA_URL = 'https://prexzsvxzxampyofojux.supabase.co/storage/v1/object/public/media/'   # ko'rsatish uchun
+    MEDIA_URL = 'https://prexzsvxzxampyofojux.supabase.co/storage/v1/s3/object/public/media/'   # ko'rsatish uchun
     AWS_S3_ADDRESSING_STYLE = 'path'
     AWS_DEFAULT_ACL = 'public-read'
     AWS_QUERYSTRING_AUTH = False
