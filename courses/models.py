@@ -216,8 +216,18 @@ class Question(models.Model):
     )
     text = models.TextField("Savol matni")
     options = models.JSONField("Variantlar", default=list)
+    image = models.ImageField(upload_to='questions/images/', null=True, blank=True)
+    image_caption = models.CharField(max_length=255, null=True, blank=True)
+    image_position = models.CharField(
+        max_length=10,
+        choices=[('top','Tepada'), ('right','O\'ngda'), ('bottom','Pastda'), ('left','Chapda')],
+        default='top',
+        blank=True
+    )
     correct_answer = models.PositiveIntegerField("To'g'ri javob indeksi")
     explanation = models.TextField("Izoh", blank=True)
+    points = models.PositiveIntegerField("Ball", default=1)
+    earned_points = models.PositiveIntegerField("Yig'ilgan ball", default=0)
 
     class Meta:
         verbose_name = "Savol"
@@ -253,6 +263,8 @@ class TestResult(models.Model):
     weak_topics = models.JSONField("Zaif mavzular", default=list, blank=True)
     ai_feedback = models.TextField("AI tahlili", blank=True, default="")
     recommendations = models.JSONField("Tavsiyalar", default=list, blank=True)
+    earned_points = models.PositiveIntegerField("Yig'ilgan ball", default=0)
+
 
     class Meta:
         verbose_name = "Test natijasi"

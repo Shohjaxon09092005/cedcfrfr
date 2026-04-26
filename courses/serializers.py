@@ -81,9 +81,11 @@ class ResourceSerializer(serializers.ModelSerializer):
 
 
 class QuestionSerializer(serializers.ModelSerializer):
+    
+    image = serializers.ImageField(required=False, allow_null=True, use_url=True)
     class Meta:
         model = Question
-        fields = ["id", "text", "options", "correct_answer", "explanation"]
+        fields = ["id", "text", "options", "correct_answer", "explanation",'image', 'image_caption', 'image_position',"points" ]
         read_only_fields = ["id"]
 
 

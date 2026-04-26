@@ -5,9 +5,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from django.shortcuts import get_object_or_404
 
 from .models import Course, Resource, Test, Category, Lesson, LessonResource, TestResult, CourseEnrollment
-from .serializers import CourseSerializer, ResourceSerializer, TestSerializer, CategorySerializer, LessonSerializer, LessonResourceSerializer, TestResultSerializer, CourseEnrollmentSerializer
+from .serializers import CourseSerializer, ResourceSerializer, TestSerializer, CategorySerializer, LessonSerializer, LessonResourceSerializer, TestResultSerializer, CourseEnrollmentSerializer, QuestionSerializer  
 
 User = get_user_model()
 
@@ -140,7 +141,7 @@ class TestViewSet(viewsets.ModelViewSet):
     queryset = Test.objects.select_related("course").all()
     serializer_class = TestSerializer
     permission_classes = [permissions.IsAuthenticated]
-
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     def get_queryset(self):
         # allow filtering by course id
         queryset = super().get_queryset()
@@ -148,6 +149,32 @@ class TestViewSet(viewsets.ModelViewSet):
         if course_id:
             queryset = queryset.filter(course_id=course_id)
         return queryset
+    @action(detail=True, methods=['post'], url_path='add-question',
+        parser_classes=[MultiPartParser, FormParser, JSONParser])
+    def add_question(self, request, pk=None):
+        test = self.get_object()
+        data = request.data.copy()
+        data['test'] = test.id
+        serializer = QuestionSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save(test=test)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['patch', 'delete'], 
+            url_path='question/(?P<question_id>[^/.]+)',
+            parser_classes=[MultiPartParser, FormParser, JSONParser])
+    def update_question(self, request, question_id=None, pk=None):
+        from .models import Question
+        question = get_object_or_404(Question, id=question_id)
+        if request.method == 'DELETE':
+            question.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        serializer = QuestionSerializer(question, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema_view(
@@ -182,22 +209,30 @@ class TestResultViewSet(viewsets.ModelViewSet):
         # Calculate score
         questions = test.questions.all()
         correct_answers = 0
+        total_points = 0
+        earned_points = 0
         for i, answer_idx in enumerate(answers):
             if i < len(questions) and answer_idx == questions[i].correct_answer:
-                correct_answers += 1
+                if i < len(questions):
+                    q = questions[i]
+                    total_points += q.points
+                    if answer_idx == q.correct_answer:
+                        correct_answers += 1
+                        earned_points += q.points
 
-        score = round((correct_answers / max(len(questions), 1)) * 100) if len(questions) > 0 else 0
+        # Agar barcha savollar 1 ball bo'lsa — oldingi kabi ishlaydi
+        score = round((earned_points / max(total_points, 1)) * 100)
 
-        # Create result
         result = TestResult.objects.create(
             student=request.user,
             test=test,
             score=score,
-            max_score=100,
+            max_score=total_points,   # ← 100 emas, haqiqiy max ball
             answers=answers,
             time_spent=time_spent,
             correct_answers=correct_answers,
             total_questions=len(questions),
+            earned_points=earned_points,
         )
 
         serializer = self.get_serializer(result)
